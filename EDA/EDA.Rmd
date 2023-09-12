@@ -48,11 +48,15 @@ HDdata <- read.csv("Heart_Disease_Prediction.csv")
 # Subset your data
 subset_HDdata <- HDdata[, c("Age", "BP", "Cholesterol", "Max.HR", "ST.depression")]
 
+# Define colors for each category
+histogram_colors <- c("Age" = "blue", "BP" = "green", "Cholesterol" = "red", "Max.HR" = "purple", "ST.depression" = "orange")
+boxplot_colors <- c("Age" = "blue", "BP" = "green", "Cholesterol" = "red", "Max.HR" = "purple", "ST.depression" = "orange")
+
 # Create and display histograms, boxplots, and Q-Q plots for all columns
 for (col in colnames(subset_HDdata)) {
   # Create histogram with density curve, mean, and standard deviation lines
   histogram_plot <- ggplot(subset_HDdata, aes(x = .data[[col]])) +
-    geom_histogram(binwidth = ifelse(col == "ST.depression", 0.5, 5), fill = ifelse(col == "ST.depression", "orange", "blue"), color = "black") +
+    geom_histogram(binwidth = ifelse(col == "ST.depression", 0.5, 5), fill = histogram_colors[col], color = "black") +
     geom_density(aes(y = ..density..), kernel = "epanechnikov", size = 1, col = "purple", alpha = 0.2, adjust = 2) +
     geom_vline(xintercept = mean(subset_HDdata[[col]]), col = "red", size = 1, alpha = 0.5) +
     geom_segment(aes(x = mean(subset_HDdata[[col]]) - sd(subset_HDdata[[col]]), y = 0.007, xend = mean(subset_HDdata[[col]]) + sd(subset_HDdata[[col]]), yend = 0.007),
@@ -66,7 +70,7 @@ for (col in colnames(subset_HDdata)) {
   
   # Create and display boxplot
   boxplot_plot <- ggplot(subset_HDdata, aes(y = .data[[col]])) +
-    geom_boxplot(fill = ifelse(col == "ST.depression", "orange", "blue")) +
+    geom_boxplot(fill = boxplot_colors[col]) +
     labs(title = paste("Boxplot of", col), x = "", y = col) +
     theme_minimal()
   

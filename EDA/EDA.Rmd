@@ -1,0 +1,98 @@
+---
+title: "EDA"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-09-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+```
+
+```{r}
+#Adding random stuff jic we need it
+require(tinytex)
+require(ggplot2)
+require(ggthemes)
+require(extrafont)
+require(ggstance)
+require(fitdistrplus)
+require(ggcorrplot)
+require(GGally)
+require(ggExtra)
+require(moments)
+require(kable)
+require(reshape2)
+require(dplyr)
+require(corrplot)
+require(gridExtra)
+
+```
+
+# Intro
+
+# EDA
+
+words and yk other stuff
+
+```{r}
+# Load libraries
+library(ggplot2)
+library(corrplot)
+
+# Read the data
+HDdata <- read.csv("Heart_Disease_Prediction.csv")
+
+# Subset your data
+subset_HDdata <- HDdata[, c("Age", "BP", "Cholesterol", "Max.HR", "ST.depression")]
+
+# Create and display histograms, boxplots, and Q-Q plots for all columns
+for (col in colnames(subset_HDdata)) {
+  # Create histogram with density curve, mean, and standard deviation lines
+  histogram_plot <- ggplot(subset_HDdata, aes(x = .data[[col]])) +
+    geom_histogram(binwidth = ifelse(col == "ST.depression", 0.5, 5), fill = ifelse(col == "ST.depression", "orange", "blue"), color = "black") +
+    geom_density(aes(y = ..density..), kernel = "epanechnikov", size = 1, col = "purple", alpha = 0.2, adjust = 2) +
+    geom_vline(xintercept = mean(subset_HDdata[[col]]), col = "red", size = 1, alpha = 0.5) +
+    geom_segment(aes(x = mean(subset_HDdata[[col]]) - sd(subset_HDdata[[col]]), y = 0.007, xend = mean(subset_HDdata[[col]]) + sd(subset_HDdata[[col]]), yend = 0.007),
+                 col = "red", alpha = 0.3) +
+    geom_boxplot(aes(y = -0.005), width = 0.05, notch = TRUE, notchwidth = 0.1, outlier.shape = NA) +
+    labs(title = paste("Histogram of", col), x = col, y = "Frequency") +
+    theme_minimal()
+  
+  # Display histogram
+  print(histogram_plot)
+  
+  # Create and display boxplot
+  boxplot_plot <- ggplot(subset_HDdata, aes(y = .data[[col]])) +
+    geom_boxplot(fill = ifelse(col == "ST.depression", "orange", "blue")) +
+    labs(title = paste("Boxplot of", col), x = "", y = col) +
+    theme_minimal()
+  
+  # Display boxplot
+  print(boxplot_plot)
+  
+  # Create and display Q-Q plot
+  qq_plot <- ggplot(subset_HDdata, aes(sample = .data[[col]])) +
+    geom_qq() +
+    labs(title = paste("Normal Q-Q Plot of", col), x = "Theoretical Quantiles", y = "Sample Quantiles") +
+    theme_minimal()
+  
+  # Display Q-Q plot
+  print(qq_plot)
+}
+
+# Print Summary Statistics
+print(summary(subset_HDdata))
+
+# Print Covariance Matrix
+print(cov(subset_HDdata))
+
+# Print Correlation Matrix
+print(cor(subset_HDdata))
+
+corrplot(cor(subset_HDdata), type = "upper", 
+         method = "square", 
+         addCoef.col = "white", 
+         tl.col = "black", tl.srt = 45)

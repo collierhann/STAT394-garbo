@@ -102,9 +102,9 @@ for (col in colnames(subset_HDdata)) {
 
 }
 # Potential option 2 cont (grouped by variable)
-grid.arrange(grobs=histList, ncol=3)
-grid.arrange(grobs=boxList, ncol=3)
-grid.arrange(grobs=qqList, ncol=3)
+#grid.arrange(grobs=histList, ncol=3)
+#grid.arrange(grobs=boxList, ncol=3)
+#grid.arrange(grobs=qqList, ncol=3)
 
 # ggpairs split by heart disease (optional, useful for LDA if done)
 #subset_incHD <- cbind(subset_HDdata, HDdata[,c("Heart.Disease")])
@@ -165,6 +165,7 @@ cor(subset_HDdata)
 ```
 
 A correlogram is generated for correlation between variables.
+
 ```{r}
 corrplot(cor(subset_HDdata), type = "upper", 
          method = "square", 
@@ -175,6 +176,7 @@ corrplot(cor(subset_HDdata), type = "upper",
 The only notable correlations are with `Age` and `Max.HR`, and with `Max.HR` and `ST.depression`. These correlations are moderate and negative.
 
 Next the data should be tested for normality using the Anderson-Darling test.
+
 ```{r}
 pval <- c()
 for (col in colnames(subset_HDdata)) {
@@ -182,4 +184,5 @@ for (col in colnames(subset_HDdata)) {
 }
 pander(pval)
 ```
+
 There is evidence to reject normality for all numerical variables by the Anderson-Darling test, at the $\alpha = 0.05$ significance level.

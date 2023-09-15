@@ -1,0 +1,185 @@
+---
+title: "EDA"
+date: "2023-09-12"
+
+output: 
+  bookdown::pdf_document2:
+      number_sections: false
+      extra_dependencies: "bbm"
+
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.pos = 'H', extra.out="")
+```
+
+```{r}
+#Adding random stuff jic we need it
+require(tinytex)
+require(ggplot2)
+require(ggthemes)
+require(extrafont)
+require(ggstance)
+require(fitdistrplus)
+require(ggcorrplot)
+require(GGally)
+require(ggExtra)
+require(moments)
+require(kableExtra)
+require(reshape2)
+require(dplyr)
+require(corrplot)
+require(gridExtra)
+require(nortest) # Anderson-Darling test
+require(pander) # nice tables
+```
+
+# Intro
+
+# EDA
+
+words and yk other stuff
+
+```{r, warning = FALSE}
+# Load libraries
+# Read the data
+HDdata <- read.csv("Heart_Disease_Prediction.csv")
+
+# Subset your data
+subset_HDdata <- HDdata[, c("Age", "BP", "Cholesterol", "Max.HR", "ST.depression")]
+
+# Define colors for each category
+histogram_colors <- c("Age" = "blue", "BP" = "green", "Cholesterol" = "red", "Max.HR" = "purple", "ST.depression" = "orange")
+boxplot_colors <- c("Age" = "blue", "BP" = "green", "Cholesterol" = "red", "Max.HR" = "purple", "ST.depression" = "orange")
+
+histList <- list()
+boxList <- list()
+qqList <- list()
+
+# Create and display histograms, boxplots, and Q-Q plots for all columns
+for (col in colnames(subset_HDdata)) {
+  # Create histogram with density curve, mean, and standard deviation lines
+  histogram_plot <- ggplot(subset_HDdata, aes(x = .data[[col]])) +
+    geom_histogram(binwidth = ifelse(col == "ST.depression", 0.5, 5), fill = histogram_colors[col], color = "black") +
+    geom_density(aes(y = ..density..), kernel = "epanechnikov", size = 1, col = "purple", alpha = 0.2, adjust = 2) +
+    geom_vline(xintercept = mean(subset_HDdata[[col]]), col = "red", size = 1, alpha = 0.5) +
+    geom_segment(aes(x = mean(subset_HDdata[[col]]) - sd(subset_HDdata[[col]]), y = 0.007, xend = mean(subset_HDdata[[col]]) + sd(subset_HDdata[[col]]), yend = 0.007),
+                 col = "red", alpha = 0.3) +
+    geom_boxplot(aes(y = -0.005), width = 0.05, notch = TRUE, notchwidth = 0.1, outlier.shape = NA) +
+    labs(title = paste(col), x = col, y = "Frequency") + 
+    theme_minimal()
+  
+  # Display histogram
+  #print(histogram_plot)
+  
+  # Create and display boxplot
+  boxplot_plot <- ggplot(subset_HDdata, aes(y = .data[[col]]), notch=TRUE) +
+    geom_boxplot(fill = boxplot_colors[col]) +
+    labs(title = paste(col), x = "", y = col) +
+    theme_minimal()
+  
+  
+  # Display boxplot
+  #print(boxplot_plot)
+  
+  # Create and display Q-Q plot
+  qq_plot <- ggplot(subset_HDdata, aes(sample = .data[[col]])) +
+    geom_qq() + stat_qq_line() + # added Q-Q line as it was missing from the original plots
+    labs(title = paste(col), x = "Theoretical Quantiles", y = "Sample Quantiles") +
+    theme_minimal()
+  
+  # Display Q-Q plot
+  #print(qq_plot)
+  
+  # Potential option 1 (grouped by graph type)
+  #grid.arrange(histogram_plot, boxplot_plot, qq_plot, ncol=2)
+  
+  # Potential option 2 (grouped by variable)
+  histList[[col]] <- histogram_plot
+  boxList[[col]] <- boxplot_plot
+  qqList[[col]] <- qq_plot
+
+}
+# Potential option 2 cont (grouped by variable)
+grid.arrange(grobs=histList, ncol=3)
+grid.arrange(grobs=boxList, ncol=3)
+grid.arrange(grobs=qqList, ncol=3)
+
+# ggpairs split by heart disease (optional, useful for LDA if done)
+#subset_incHD <- cbind(subset_HDdata, HDdata[,c("Heart.Disease")])
+#colnames(subset_incHD) <- c("Age", "BP", "Cholesterol", "Max.HR", "ST.depression", "Heart.Disease")
+#ggpairs(subset_incHD, aes(colour=Heart.Disease, alpha=.5))+ 
+  #theme_pander(base_size = 8)
+
+```
+
+
+```{r}
+# Grid arrangemennt of histograms (all starting from zero, don't know why.)
+# Function shown with library it's from, not necessary but helpful if people didn't know
+gridExtra::grid.arrange(grobs=histList)
+```
+
+The age, cholesterol, and maximum heart rate histograms appear to follow a normal distribution.
+
+The blood pressure histogram has many peaks at the 10 mmHg marks. This is a result of "zero end-digit preference", a phenomenon where blood pressure readings are rounded to the nearest ten. This is known to occur especially around treatment cutoffs (120 mmHg is considered 'elevated', 130mmHg is 'stage 1 hypertension', and 140mmHg is 'stage 2 hypertension')^[provide citation]^. 150 of the 270 observations, approximately 56%, are given as a multiple of 10. Most blood pressure indicators give guidelines to measure to the nearest 2 mmHg. The potential rounding of data indicates a lack of normality in the data since many observations may have been rounded up or down significantly.
+
+The ST depression histogram has a tail to the right, which is expected. ST depression is a measure of how far an ECG line passes below the baseline on the graph, and these values tend to be small. ST depression values indicate potential issues with the heart, like restricted blood flow to the heart. Greater values indicate more significantly that issues may be present, but the magnitude of the value alone does not indicate the type of issue; that is the role of the `Slope` variable, which categorises the direction of the slope in order to rule out specific causes for the depression.
+
+```{r}
+# Grid arrangement of box plots
+gridExtra::grid.arrange(grobs=boxList, ncol=3)
+```
+
+`BP`, `Cholesterol`, and `ST.depression` have noted outliers to the higher end of values, where `Max.HR` has one outlier on the lower end. `ST.depression` has a very asymmetrical spread, indicating the data is not normally distributed for this variable.
+
+
+```{r}
+# Grid arrangement of Q-Q plots
+gridExtra::grid.arrange(grobs=qqList)
+```
+
+The normal Q-Q plots for the variables suggest normality in residuals for all variables except `ST.depression`, where the quantile plot differs significantly from the standard Q-Q line in the negative theoretical quantiles.
+
+Summary data and the covariance matrix are provided below.
+
+```{r}
+# Print Summary Statistics
+# Restructured into a nice looking table, with skewness and kurtosis added
+# Only looks good once knitted
+summ <- as.data.frame.matrix(sub('.*:','', summary(subset_HDdata)))
+sample_size <- rep(length(subset_HDdata[,1]), ncol(subset_HDdata))
+summ <- rbind(sample_size, summ, round(skewness(subset_HDdata),4), round(kurtosis(subset_HDdata),4))
+rownames(summ) <- c("Sample size", "Minimum", "1st quartile", "Median", "Mean", "3rd quartile",
+                    "Maximum", "Skewness", "Kurtosis")
+knitr::kable(summ, booktabs=TRUE, 
+             caption="Exploratory data analysis summary for the numerical variables of heart disease data.") %>%
+  kable_styling(latex_options = "HOLD_position")
+
+# Print Covariance Matrix
+cov(subset_HDdata)
+
+# Print Correlation Matrix
+cor(subset_HDdata)
+```
+
+A correlogram is generated for correlation between variables.
+```{r}
+corrplot(cor(subset_HDdata), type = "upper", 
+         method = "square", 
+         addCoef.col = "white", 
+         tl.col = "black", tl.srt = 45)
+```
+
+The only notable correlations are with `Age` and `Max.HR`, and with `Max.HR` and `ST.depression`. These correlations are moderate and negative.
+
+Next the data should be tested for normality using the Anderson-Darling test.
+```{r}
+pval <- c()
+for (col in colnames(subset_HDdata)) {
+  pval[[col]] <- nortest::ad.test(subset_HDdata[[col]])$p.value
+}
+pander(pval)
+```
+There is evidence to reject normality for all numerical variables by the Anderson-Darling test, at the $\alpha = 0.05$ significance level.

@@ -1,0 +1,313 @@
+---
+title: "Project Report One Group 3"
+date: "2023-09-12"
+
+output: 
+  bookdown::pdf_document2:
+      number_sections: false
+      extra_dependencies: ["float"]
+
+header-includes:
+  - \usepackage{bbm}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.pos = 'H', extra.out="",
+                      out.width="60%", fig.align="center")
+```
+
+```{r}
+require(tinytex)
+require(ggplot2)
+require(ggthemes)
+require(extrafont)
+require(ggstance)
+require(fitdistrplus)
+require(ggcorrplot)
+require(GGally)
+require(ggExtra)
+require(moments)
+require(kableExtra)
+require(reshape2)
+require(dplyr)
+require(corrplot)
+require(gridExtra)
+require(nortest) # Anderson-Darling test
+require(pander) # nice tables
+```
+
+# Group Three Members Information:
+
+## Grace:
+__ORCID ID:__ 0009-0007-5950-1669\
+__STUDENT ID:__ 300579109\
+__EMAIL:__ $brownlgrac@vuw.ac.nz$
+
+## Hannah:
+__ORCID ID:__ 0009-0003-8155-9657\
+__STUDENT ID:__ 300343315\
+__EMAIL:__ $Colliehann2@vuw.ac.nz$
+
+## Thomas:
+__ORCID ID:__ 0009-0007-5097-9017\
+__STUDENT ID:__ 300475577\
+__EMAIL:__ $rowleythom1@vuw.ac.nz$
+
+```{r, echo=FALSE}
+#knitr::include_graphics("thomas.png", dpi = 800)
+```
+
+## Aiden:
+__ORCID ID:__ 0009-0006-7202-082X\
+__STUDENT ID:__ 300561276\
+__EMAIL:__ $angaida@vuw.ac.nz$
+
+## Bridget:
+__ORCID ID:__ 0009-0004-8935-8646\
+__STUDENT ID:__ 300572906\
+__EMAIL:__ $fijmabrid@myvuw.ac.nz$
+
+```{r, echo=FALSE}
+#knitr::include_graphics("bridget copy.png", dpi = 2000)
+```
+
+# Reason for Choice and Availability:
+
+Heart disease is the number one killer in New Zealand [cite heart foundation here]. Consequently, this is an important area of research, as understanding the clinical variables that make people vulnerable to heart disease is crucial to implementing effective prevention strategies and informing effective policy decisions. \
+We chose to look at specifically at how clinical variables can predict the presence or absence of heart disease.\
+\
+Our data is freely available through Kaggle, and we are able to share and adapt the data to suit our needs. We accessed the data from https://www.kaggle.com/datasets/thedevastator/predicting-heart-disease-risk-using-clinical-var to the dataset. We will also ensure that we give appropriate credit to our data, and provide a link to the liscence Data files © Original Authors. Our own findings will also be freely available through GitHub in keeping with the policy of our original data. 
+
+# Number and Type of Variables:
+The sample population of the dataset is 270 adults from Cleveland, USA.
+
+The "Heart_Disease_Prediction" dataset has 14 variables.
+
+6 of those variables are numeric and 8 are categorical.
+
+## Numeric Variables:
+
+__Age:__ The age of the patient\
+__BP:__ The blood pressure level of the patient in mmHg\
+__Cholesterol:__ The cholesterol level of the patient in $mg/dl$\
+__Max HR:__ The maximum heart rate levels achieved during exercise testing (bpm)\
+__ST depression:__ The ST(Stress Test) depression on an Electrocardiogram induced by exercise relative to rest (mm)\
+A clinically significant ST depression is typically defined as $\ge1$ mm. A significant ST depression, particularly for a patient with chest pain, may be indicative of restriction of blood supply (myocardial ischemia)\
+__Number of vessels fluro:__ The number of major vessels coloured by fluoroscopy\
+The major coronary vessels considered here are the left anterior descending artery, the left circumflex artery, and the right coronary artery. The intent of the fluoroscopy is to visualise all three major vessels.\
+
+## Categorical:
+
+__Sex:__ Sex of the patient(0 = Female, 1 = Male)\
+__Chest pain type:__ Type of chest pain experienced by the patient (1 = Typical angina, 2 = Atypical angina, 3 = Non-anginal pain, 4 = Asymptomatic)\
+Typical angina occurs behind the sternum and is often described as a squeezing or tightness in the chest. It is triggered by exertion or stress and is relieved by rest within 20 minutes. Typical angina is highly suggestive of heart disease.\
+Atypical angina shares some of the characteristics of typical angina but is either not triggered by exertion or stress or is not relieved by rest.\
+If "asymptomatic" the patient is not experiencing chest pain.\
+__FBS over 120:__ Fasting blood sugar test results are over 120 $mg/dl$ (0 = False, 1 = True)\
+__EKG results:__ Resting electrocardiographic results (0 = normal, 1 = having ST-T wave abnormality, 2 = Showing Probable or Definite Left Ventricular Hypertrophy by Estes' Criteria)\
+ST-T wave abnormalities can include T-wave inversions and or ST-segment elevation or depression of greater than 0.05 millivolts(mV). These can both be indicative of partial or complete blockage of a coronary artery (mysocardial ischemia).\
+
+# Research Questions:
+
+### One: 
+Can we accurately predict whether heart disease is present based on the variables measured.
+
+### Two:
+How does sex and age interact and influence whether heart disease is present.
+
+### Three:
+What manageable characteristics effect rates of heart disease and can people reduce/increase these.\
+
+# Preliminary EDA:
+
+Histograms, notched box plots, and Q-Q plots will be generated from the heart disease data, considering the numerical variables `Age`, `BP`, `Cholesterol`, `Max.HR`, and `ST.depression`. These plots will be found in Figures \@ref(fig:histPlots), \@ref(fig:boxPlots), and \@ref(fig:qqPlots) respectively.
+
+```{r, warning = FALSE}
+# Load libraries
+# Read the data
+HDdata <- read.csv("Heart_Disease_Prediction.csv")
+
+# Subset your data
+subset_HDdata <- HDdata[, c("Age", "BP", "Cholesterol", "Max.HR", "ST.depression")]
+
+# Define colors for each category
+colors <- c("Age" = "blue", "BP" = "green", "Cholesterol" = "red", "Max.HR" = "purple", "ST.depression" = "orange")
+
+histList <- list()
+boxList <- list()
+qqList <- list()
+
+# Create and display histograms, boxplots, and Q-Q plots for all columns
+for (col in colnames(subset_HDdata)) {
+  # Create histogram with density curve, mean, and standard deviation lines
+  histogram_plot <- ggplot(subset_HDdata, aes(x = .data[[col]])) +
+    geom_histogram(binwidth = ifelse(col == "ST.depression", 0.5, 5), fill = colors[col], color = "black") +
+    geom_density(aes(y = ..density..), kernel = "epanechnikov", size = 1, col = "purple", alpha = 0.2, adjust = 2) +
+    geom_vline(xintercept = mean(subset_HDdata[[col]]), col = "red", size = 1, alpha = 0.5) +
+    geom_segment(aes(x = mean(subset_HDdata[[col]]) - sd(subset_HDdata[[col]]), y = 0.007, xend = mean(subset_HDdata[[col]]) + sd(subset_HDdata[[col]]), yend = 0.007),
+                 col = "red", alpha = 0.3) +
+    geom_boxplot(aes(y = -0.005), width = 0.05, notch = TRUE, notchwidth = 0.1, outlier.shape = NA) +
+    labs(title = paste(col), x = col, y = "Frequency") + 
+    theme_minimal()
+  
+  # Display histogram
+  #print(histogram_plot)
+
+
+  # Create and display boxplot
+  boxplot_plot <- ggplot(subset_HDdata, aes(y = .data[[col]]), notch=TRUE) +
+    geom_boxplot(fill = colors[col]) +
+    labs(title = paste(col), x = "", y = col) +
+    theme_minimal()
+  
+  
+  # Display boxplot
+  #print(boxplot_plot)
+  
+  # Create and display Q-Q plot
+  qq_plot <- ggplot(subset_HDdata, aes(sample = .data[[col]])) +
+    stat_qq(color=colors[col]) + stat_qq_line() + # added Q-Q line as it was missing from the original plots
+    labs(title = paste(col), x = "Theoretical Quantiles", y = "Sample Quantiles") +
+    theme_minimal()
+  
+  # Display Q-Q plot
+  #print(qq_plot)
+  
+  # Potential option 1 (grouped by graph type)
+  #grid.arrange(histogram_plot, boxplot_plot, qq_plot, ncol=2)
+  
+  # Potential option 2 (grouped by variable)
+  histList[[col]] <- histogram_plot
+  boxList[[col]] <- boxplot_plot
+  qqList[[col]] <- qq_plot
+
+}
+# Potential option 2 cont (grouped by variable)
+#grid.arrange(grobs=histList, ncol=3)
+#grid.arrange(grobs=boxList, ncol=3)
+#grid.arrange(grobs=qqList, ncol=3)
+
+# ggpairs split by heart disease (optional, useful for LDA if done)
+#subset_incHD <- cbind(subset_HDdata, HDdata[,c("Heart.Disease")])
+#colnames(subset_incHD) <- c("Age", "BP", "Cholesterol", "Max.HR", "ST.depression", "Heart.Disease")
+#ggpairs(subset_incHD, aes(colour=Heart.Disease, alpha=.5))+ 
+  #theme_pander(base_size = 8)
+
+```
+
+
+```{r histPlots, fig.cap="Histograms for the numerical variables of the heart disease dataset."}
+# Grid arrangemennt of histograms (all starting from zero, don't know why.)
+# Function shown with library it's from, not necessary but helpful if people didn't know
+gridExtra::grid.arrange(grobs=histList)
+```
+
+The age, cholesterol, and maximum heart rate histograms appear to follow a normal distribution, as seen in Figure \@ref(fig:histPlots).
+
+The blood pressure histogram has many peaks at the 10 mmHg marks. This is a result of "zero end-digit preference", a phenomenon where blood pressure readings are rounded to the nearest ten. This is known to occur especially around treatment cutoffs (120 mmHg is considered 'elevated', 130mmHg is 'stage 1 hypertension', and 140mmHg is 'stage 2 hypertension') (https://www.cdc.gov/bloodpressure/facts.htm). 150 of the 270 observations, approximately 56%, are given as a multiple of 10. Most blood pressure indicators give guidelines to measure to the nearest 2 mmHg. The potential rounding of data indicates a lack of normality in the data since many observations may have been rounded up or down significantly.
+
+The ST depression histogram has a tail to the right, which is expected. ST depression is a measure of how far an ECG line passes below the baseline on the graph, and these values tend to be small. ST depression values indicate potential issues with the heart, like restricted blood flow to the heart. Greater values indicate more significantly that issues may be present, but the magnitude of the value alone does not indicate the type of issue; that is the role of the `Slope` variable, which categorises the direction of the slope in order to rule out specific causes for the depression.
+
+```{r boxPlots, fig.cap="Notched box plots for the numerical variables of the heart disease dataset."}
+# Grid arrangement of box plots
+gridExtra::grid.arrange(grobs=boxList, ncol=3)
+```
+
+The box plots from Figure \@ref(fig:boxPlots) shows that `BP`, `Cholesterol`, and `ST.depression` have noted outliers to the higher end of values, where `Max.HR` has one outlier on the lower end. `ST.depression` has a very asymmetrical spread, indicating the data is not normally distributed for this variable.
+
+
+```{r qqPlots, fig.cap="Normal Q-Q plots for the numerical variables of the heart disease dataset."}
+# Grid arrangement of Q-Q plots
+gridExtra::grid.arrange(grobs=qqList)
+```
+
+The normal Q-Q plots from Figure \@ref(fig:qqPlots) for the variables suggest normality in residuals for all variables except `ST.depression`, where the quantile plot differs significantly from the standard Q-Q line in the negative theoretical quantiles.
+
+Summary statistics, the covariance matrix, and the correlation matrix are provided below in Tables \@ref(tab:summStat), \@ref(tab:covMat), and \@ref(tab:corMat) respectively.
+
+```{r}
+# Print Summary Statistics
+# Restructured into a nice looking table, with skewness and kurtosis added
+# Only looks good once knitted
+summ <- as.data.frame.matrix(sub('.*:','', summary(subset_HDdata)))
+sample_size <- rep(length(subset_HDdata[,1]), ncol(subset_HDdata))
+summ <- rbind(sample_size, summ, round(skewness(subset_HDdata),4), round(kurtosis(subset_HDdata),4))
+rownames(summ) <- c("Sample size", "Minimum", "1st quartile", "Median", "Mean", "3rd quartile",
+                    "Maximum", "Skewness", "Kurtosis")
+knitr::kable(summ, booktabs=TRUE, label="summStat",
+             caption="Exploratory data analysis summary for the numerical variables of heart disease data.") %>% kable_styling(latex_options = "HOLD_position") # Table 1
+```
+
+```{r}
+knitr::kable(cov(subset_HDdata), booktabs=TRUE, label="covMat",
+             caption="Covariance matrix of the numerical variables of the heart disease dataset.") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+```{r}
+knitr::kable(cor(subset_HDdata), booktabs=TRUE, label="corMat",
+             caption="Covariance matrix of the numerical variables of the heart disease dataset.") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+A correlogram is generated for correlation between variables and presented in Figure \@ref(fig:correlogramHD).
+
+```{r correlogramHD, fig.cap="Correlogram of numerical variables in the heart disease dataset."}
+corrplot(cor(subset_HDdata), type = "upper", 
+         method = "square", 
+         addCoef.col = "white", 
+         tl.col = "black", tl.srt = 45)
+```
+
+The only notable correlations are with `Age` and `Max.HR`, and with `Max.HR` and `ST.depression`. These correlations are moderate and negative.
+
+Next the data should be tested for normality using the Anderson-Darling test. The results will be found in Table \@ref(tab:adPval).
+
+```{r}
+pvalAD <- list()
+for (col in colnames(subset_HDdata)) {
+  pvalAD[[col]] <- nortest::ad.test(subset_HDdata[[col]])$p.value
+}
+
+pvalAD <- as.data.frame(pvalAD)
+knitr::kable(pvalAD, booktabs=TRUE, label="adPval",
+       caption="Anderson-Darling test p-values for normality.") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+There is evidence to reject normality for all numerical variables by the Anderson-Darling test, at the $\alpha = 0.05$ significance level.
+
+
+
+# Timeline for Project:
+
+__Friday 8th September:__ Group meeting 11-1pm. \
+-	Find dataset.\
+-	Split workload for project report 1.\
+Grace & Hannah: reason for choice, Availability, number of variables & observations.\
+Thomas & Aiden: EDA\
+Bridget: Research Qs and Timeline.\
+\
+__Friday 9th September – Thursday 14th September:__\
+-	working individually on assigned parts of the assignment.\
+\
+__Friday 15th September:__ Group meeting 12-2pm. \
+-	Combine individual efforts, go over everyone parts.\
+-	make report for submission.\
+\
+__Monday 18th September:__ \
+-	Hand in submission 1.\
+\
+__Friday 22nd September:__ Group Meeting 11:1pm.  \
+-	Focus goals \
+-	Discuss any feedback received as a group and implement. \
+\
+__Friday 6th October:__ \
+-	Submission 2 hand in.\
+\
+__Friday 13th October:__ Group Meeting 11-1pm. \
+-	TBC\
+\
+__Friday 20th October:__
+\
+-	Final Submission.\

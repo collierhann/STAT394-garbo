@@ -73,7 +73,7 @@ __EMAIL:__ $fijmabrid@myvuw.ac.nz$
 
 # Reason for Choice and Availability:
 
-Heart disease is the number one killer in New Zealand [cite heart foundation here]. Consequently, this is an important area of research, as understanding the clinical variables that make people vulnerable to heart disease is crucial to implementing effective prevention strategies and informing effective policy decisions. \
+Heart disease is the number one killer in New Zealand [https://www.hri.org.nz/health/learn/cardiovascular-disease/cardiovascular-disease-impacts-and-risks]. Consequently, this is an important area of research, as understanding the clinical variables that make people vulnerable to heart disease is crucial to implementing effective prevention strategies and informing effective policy decisions. \
 We chose to look at specifically at how clinical variables can predict the presence or absence of heart disease.\
 \
 Our data is freely available through Kaggle, and we are able to share and adapt the data to suit our needs. We accessed the data from https://www.kaggle.com/datasets/thedevastator/predicting-heart-disease-risk-using-clinical-var to the dataset. We will also ensure that we give appropriate credit to our data, and provide a link to the liscence Data files © Original Authors. Our own findings will also be freely available through GitHub in keeping with the policy of our original data. 

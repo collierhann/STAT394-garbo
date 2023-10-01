@@ -26,22 +26,7 @@ library(pander)
 
 theme_set(theme_minimal())
 theme_set(theme_get() + theme(text = element_text(family = 'serif')))
-set.seed(300475577, kind="Mersenne-Twister")
-
-# Writes an R matrix as a matrix
-# From https://stackoverflow.com/questions/45591286/for-r-markdown-how-do-i-display-a-matrix-from-r-variable
-write_matex2 <- function(x) {
-  begin <- "\\begin{bmatrix}"
-  end <- "\\end{bmatrix}"
-  X <-
-    apply(x, 1, function(x) {
-      paste(
-        paste(x, collapse = "&"),
-        "\\\\"
-      )
-    })
-  paste(c(begin, X, end), collapse = "")
-}
+set.seed(1234567890)
 ```
 
 ```{r}
@@ -49,29 +34,29 @@ hd <- read.csv("Heart_Disease_Prediction.csv")
 hd <- as.data.frame(hd[,-1])
 ```
 
-A pairs plot can be generated to show visually the difference in distribution between heart disease presence and absence.
+A pairs plot can be generated to show visually the difference in distribution between heart disease presence and absence, found in Figure \@ref(fig:pairs).
 
 ```{r pairs, fig.cap="Pairs plot for the continuous numeric variables.", message=FALSE}
 ggpairs(hd, aes(colour=Heart.Disease, alpha=.5), columns=c("Age", "BP", 
-  "Cholesterol", "Max.HR", "ST.depression")) + 
+  "Cholesterol", "Max.HR")) + 
   theme_pander(base_size = 8)
 ```
 
-Histograms of Age, maximum heart rate, and ST depression appear to differ significantly depending on heart disease presence or absence, indicating these variables may be significant in prediction. Blood pressure for those with heart disease appears to be higher on average than those without, and cholesterol levels are also higher for those with heart disease than those without.
+Histograms of Age and maximum heart rate appear to differ significantly depending on heart disease presence or absence, indicating these variables may be significant in prediction. Blood pressure and cholesterol appears to be slightly higher for those with heart disease than those without.
 
-A linear discriminant analysis is performed, randomly sampling data with replacement to the training and test sets with 70% and 30% probabilities respectively. The analysis is performed accounting for all numerical variables in the dataset, i.e. age, blood pressure, cholesterol, maximum heart rate, and ST depression. Since ST depression is notably non-normal, a log-transformation has been applied. A small constant ($1\times10^{-16}$) has been added to all ST values to ensure entries are defined after the log-transformation has been taken.
+A linear discriminant analysis is performed, randomly sampling data with replacement to the training and test sets with 80% and 20% probabilities respectively. The analysis is performed accounting for all numerical variables in the dataset, i.e. age, blood pressure, cholesterol, maximum heart rate. It also takes into account chest pain type and sex of the patient.
 
 ```{r LDA}
-set.seed(300475577, kind="Mersenne-Twister")
 ind <- sample(c("Tr", "Te"),
               nrow(hd),
               replace=TRUE,
-              prob=c(0.7,0.3))
+              prob=c(0.8,0.2))
 
 Train <- hd[ind=="Tr",]
 Test <- hd[ind=="Te",]
 
-LDA <- lda(Heart.Disease ~ Age + BP + Cholesterol + Max.HR + log(ST.depression+1e-16), data=Train)
+LDA <- lda(Heart.Disease ~ Age + BP + Cholesterol + Max.HR +
+             as.factor(Chest.pain.type) + as.factor(Sex), data=Train)
 ```
 
 The results of the analysis can be seen in Figure \@ref(fig:LDAhist). In this histogram, overlap implies that the person was assigned their class of heart disease wrongly, i.e. a false positive or false negative.
@@ -86,6 +71,7 @@ There is considerable overlap between the interval $[-1, 1]$ with two points out
 ```{r assignHist, fig.cap="Density plot of assigned class of heart disease."}
 df <- data.frame(Pred$x, Pred$class)
 ggplot(df, aes(x=Pred$x, fill=Pred$class))+geom_density(alpha=0.5)
+# unfinished plot, axes need fixing
 ```
 
 From Figure \@ref(fig:assignHist), it is obvious there is a small amount of error in the prediction model. Confusion matrices can be produced to quantify this error. The realistic confusion matrix is found in Table \@ref(tab:realisticConfMat).
@@ -101,7 +87,7 @@ sum(diag(OCM))/sum(OCM) # Overall accuracy
 ```{r}
 RealisticPredicted <- predict(LDA, Test)$class
 RCM <- table(RealisticPredicted, Actual=Test$Heart.Disease)
-pander(RCM, label="realisticConfMat", caption="Realistic confusion matrix, using the test dataset.")
+pander(RCM, caption="(\\#tab:realisticConfMat) Realistic confusion matrix, using the test dataset.")
 ```
 
 The predictive model has wrongly assigned 13 patients without heart disease as having heart disease, and 5 patients with heart disease as not having heart disease.
@@ -112,24 +98,31 @@ More detailed statistics concerning the confusion matrix can be given by the `co
 confusionMatrix(RCM)
 ```
 
-The same realistic confusion matrix from Table \@ref(tab:realisticConfMat) is featured at the top of the output. The overall accuracy of the confusion matrix is $79.31\% \pm 10.02\%$. The model has sensitivity of $74.51\%$, specificity of $86.11\%$, and a balanced accuracy of $80.31\%$.
+The same realistic confusion matrix from Table \@ref(tab:realisticConfMat) is featured at the top of the output. The overall accuracy of the confusion matrix is $85.71\% \pm 10.42\%$. The model has sensitivity of $92.31\%$, specificity of $77.42\%$, and a balanced accuracy of $84.86\%$.
 
 An assumption for performing linear discriminant analysis is that covariance matrices between classes are similar. The test for covariance equality is found in Table \@ref(tab:covEquality).
 
 ```{r covEquality}
-HDabsence <- as.matrix(subset(Train, Train$Heart.Disease=="Absence")[,c(1,4,5,8,10)], ncol=5)
-HDpresence <- as.matrix(subset(Train, Train$Heart.Disease=="Presence")[,c(1,4,5,8,10)], ncol=5)
+HDabsence <- as.matrix(subset(Train, Train$Heart.Disease=="Absence")[,c(-14)], ncol=5)
+HDpresence <- as.matrix(subset(Train, Train$Heart.Disease=="Presence")[,c(-14)], ncol=5)
 pander(as.data.frame(test_covequal(HDabsence, HDpresence)),
-       caption="Test results for comparing covariance matrices for 
+       caption="(\\#tab:covEquality) Test results for comparing covariance matrices for 
        absence and presence of heart disease for equality.")
 ```
 
-The covariance matrices are equal with associated p-value $0.240437$, which means that the covariance matrices between classes are not significantly different at the $\alpha = 0.05$ significance level. The assumption required for linear discriminant analysis thus holds.
+The covariance matrices are equal with associated p-value $0.1129$, which means that the covariance matrices between classes are not significantly different at the $\alpha = 0.05$ significance level. The assumption required for linear discriminant analysis thus holds.
 
-A partition matrix is generated considering all numerical variables as before.
+A partition matrix is generated considering all numerical variables as before. 
+
+<!--- unfinished explanation of partition matrix -->
 
 ```{r}
-partimat(as.factor(Heart.Disease) ~ Age + BP + Cholesterol + Max.HR +
-           log(ST.depression+1e-16), data=Train, method="lda")
+partimat(as.factor(Heart.Disease) ~ Age + BP + Cholesterol + Max.HR,
+         data=Train, method="lda")
+```
+
+```{r}
+partimat(as.factor(Heart.Disease) ~ as.factor(Chest.pain.type) + as.factor(Sex),
+         data=Train, method="lda")
 ```
 

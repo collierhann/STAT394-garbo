@@ -9,7 +9,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE, out.width="80%",
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE, out.width="80%",
                       fig.align="center", fig.pos = 'H', extra.out="")
 library(ggthemes)
 library(ggplot2)
@@ -71,7 +71,7 @@ There is considerable overlap between the interval $[-1, 1]$, indicating some mi
 ```{r assignHist, fig.cap="Density plot of assigned class of heart disease."}
 df <- data.frame(Pred$x, Pred$class)
 ggplot(df, aes(x=Pred$x, fill=Pred$class))+geom_density(alpha=0.5) +
-  labs(fill="Class") + ylab("Density")
+  labs(fill="Class") + ylab("Density") + xlab("x")
 ```
 
 From Figure \@ref(fig:assignHist), it is obvious there is a small amount of error in the prediction model. Confusion matrices can be produced to quantify this error. The realistic confusion matrix is found in Table \@ref(tab:realisticConfMat).
@@ -84,21 +84,34 @@ sum(diag(OCM))/sum(OCM) # Overall accuracy
 ```
 -->
 
-```{r}
+```{r realisticConfMat}
 RealisticPredicted <- predict(LDA, Test)$class
 RCM <- table(RealisticPredicted, Actual=Test$Heart.Disease)
-pander(RCM, caption="(\\#tab:realisticConfMat) Realistic confusion matrix, using the test dataset.")
+LDACMstats <- confusionMatrix(RCM, positive = "Presence")
+knitr::kable(LDACMstats$table, booktabs=TRUE, 
+             caption="Confusion matrix for predicting heart disease using linear discriminant analysis.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
 ```
 
-The predictive model has wrongly assigned 13 patients without heart disease as having heart disease, and 5 patients with heart disease as not having heart disease.
+The linear discriminant model has wrongly assigned 7 patients without heart disease as having heart disease, and 3 patients with heart disease as not having heart disease, errors of $22.58\%$ and $7.69\%$ respectively.
 
-More detailed statistics concerning the confusion matrix can be given by the `confusionMatrix()` function.
+More detailed statistics concerning the confusion matrix can be given by the `confusionMatrix()` function, presented in Table \@ref(tab:LDAConfMatStats) and Table \@ref(tab:LDAOverallStats).
 
-```{r confMat, fig.cap="Confusion matrix for the model, with additional statistics for explanation."}
-confusionMatrix(RCM)
+```{r LDAOverallStats}
+knitr::kable(scales::percent(LDACMstats$overall, accuracy=0.01), booktabs=TRUE, 
+             caption="Overall statistics for predicting heart disease using linear discriminant analysis.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
 ```
 
-The same realistic confusion matrix from Table \@ref(tab:realisticConfMat) is featured at the top of the output. The overall accuracy of the confusion matrix is $85.71\% \pm 10.42\%$. The model has sensitivity of $92.31\%$, specificity of $77.42\%$, and a balanced accuracy of $84.86\%$.
+The linear discriminant model has an overall accuracy of $85.71\% \pm 10.42\%$. The accuracy of the model is tested against the No Information Rate, which is the largest proportion of any class in the model, i.e. $\text{P}(Absence)$, at the $\alpha=5\%$ significance level. The p-value for the significance of this model with respect to the No Information Rate of $55.71\%$ is $p\approx0.00\%$ at the $\alpha = 5\%$ significance level, meaning the linear discriminant analysis is highly significant in its prediction power for heart disease over the no-information model.
+
+```{r LDAConfMatStats}
+knitr::kable(scales::percent(LDACMstats$byClass, accuracy=0.01), booktabs=TRUE, 
+             caption="Prediction statistics for predicting heart disease using linear discriminant analysis.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+```
+
+The model has sensitivity of $77.42\%$, specificity of $92.31\%$, and a balanced accuracy of $84.86\%$. This means it can predict someone with heart disease as having it with $77.42\%$ certainty, and someone without heart disease as not having it with $92.31\%$ certainty.
 
 An assumption for performing linear discriminant analysis is that covariance matrices between classes are similar. The test for covariance equality is found in Table \@ref(tab:covEquality).
 
@@ -110,19 +123,59 @@ pander(as.data.frame(test_covequal(HDabsence, HDpresence)),
        absence and presence of heart disease for equality.")
 ```
 
-The covariance matrices are equal with associated p-value $0.1129$, which means that the covariance matrices between classes are not significantly different at the $\alpha = 0.05$ significance level. The assumption required for linear discriminant analysis thus holds.
+The covariance equality test is performed at the $\alpha = 0.05$ significance level, with null hypothesis that covariance matrices are equal. The associated p-value for this test is $p=0.1778$. Since $p > \alpha$, there is insufficient evidence to reject that covariance matrices are equal. The assumption required for linear discriminant analysis thus holds.
 
-A partition matrix is generated considering all numerical variables as before. 
+A partition matrix is generated considering all numerical variables as before. Red points represent that the observation has been misclassified, and black points represent correctly classified observations. The partition plot can be found in Figure \@ref(fig:HDPredictpartimat).
 
-<!--- unfinished explanation of partition matrix -->
-
-```{r}
+```{r HDPredictpartimat, fig.cap="Partition plot of observations vs numerical variables, with each observation coloured by the quality of their classification."}
 partimat(as.factor(Heart.Disease) ~ Age + BP + Cholesterol + Max.HR,
          data=Train, method="lda")
 ```
 
+The approximate error rate for classification is highest at $43\%$ between blood pressure and age, and lowest at $29.5\%$ between maximum heart rate and cholesterol. This gives a range of classification error between $29.5%-43%$ between the numerical variables of the linear discriminant model.
+
+Instead of linear discriminant analysis, we can do a Bayesian classification instead. The Bayesian method will be tested on the same training data as the LDA was, and tested on the same test data.
+
 ```{r}
-partimat(as.factor(Heart.Disease) ~ as.factor(Chest.pain.type) + as.factor(Sex),
-         data=Train, method="lda")
+library(naivebayes)
+
+#necessary transformation for factors
+Train$Chest.pain.type <- as.factor(Train$Chest.pain.type)
+Train$Sex <- as.factor(Train$Sex)
+
+Bayes <- naivebayes::gaussian_naive_bayes(x=data.matrix(Train[,c(1,2,3,4,5,8)]), y=Train$Heart.Disease, data=Train)
 ```
+
+This gives the prior probabilities of an observation belonging to either distribution as $\text{P}(\text{Absence}) = \frac{111}{200} = 0.555$ and $\text{P}(\text{Presence}) = \frac{89}{200} = 0.445$, as obtained from the relative proportion of absence and presence in the original observations.
+
+Using these prior probabilities a Bayesian classification method can be applied to test data for variables Age, Sex, chest pain type, blood pressure, cholesterol level, and maximum heart rate, and its performance compared to the LDA. Tables of results can be found in Table \@ref(tab:bayesConfMat), Table \@ref(tab:bayesOverallStats), and Table \@ref(tab:bayesConfMatStats).
+
+```{r bayesConfMat}
+BayesPred <- predict(Bayes, newdata=data.matrix(Test[,c(1,2,3,4,5,8)]), type="class")
+RCMBayes <- table(BayesPred, Actual=Test$Heart.Disease)
+BayesCMstats <- confusionMatrix(RCMBayes, positive="Presence")
+knitr::kable(BayesCMstats$table, booktabs=TRUE, 
+             caption="Confusion matrix for predicting heart disease using the Bayesian classification method.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+```
+
+The Bayesian classification method correctly classified all patients without heart disease, but misclassified 21 of 31 patients with heart disease as not having it, an error of $67.74\%$.
+
+```{r bayesOverallStats}
+knitr::kable(scales::percent(BayesCMstats$overall, accuracy=0.01), booktabs=TRUE, 
+             caption="Overall statistics for predicting heart disease using the Bayesian classification method.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+```
+
+The Bayesian classification has an overall accuracy of $70.00\% \pm 12.13\%$. The accuracy of this model is tested against the null hypothesis that the model is no better than the largest proportion of classes, the No Information Rate. The `confusionMatrix` function tests this at the $\alpha=5\%$ level, and the corresponding p-value is $1.02\%$. Since $p < \alpha$, there is sufficient evidence to suggest the model is better at predicting levels of heart disease than the no information model. This means the Bayesian classification method is significant in its prediction power for heart disease.
+
+
+```{r bayesConfMatStats}
+knitr::kable(scales::percent(BayesCMstats$byClass, accuracy=0.01), booktabs=TRUE, 
+             caption="Prediction statistics for predicting heart disease using the Bayesian classification method") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+```
+
+The Bayesian classification has sensitivity of $32.26\%$, specificity of $100.00\%$, and a balanced accuracy of $66.13\%$ for predicting the presence of heart disease. This means that the model is highly inaccurate for telling people with heart disease that they have it, but perfect at telling someone without heart disease that they don't have it.
+
 

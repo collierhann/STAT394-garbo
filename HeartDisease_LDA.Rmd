@@ -71,7 +71,7 @@ There is considerable overlap between the interval $[-1, 1]$, indicating some mi
 ```{r assignHist, fig.cap="Density plot of assigned class of heart disease."}
 df <- data.frame(Pred$x, Pred$class)
 ggplot(df, aes(x=Pred$x, fill=Pred$class))+geom_density(alpha=0.5) +
-  labs(fill="Class") + ylab("Density")
+  labs(fill="Class") + ylab("Density") + xlab("x")
 ```
 
 From Figure \@ref(fig:assignHist), it is obvious there is a small amount of error in the prediction model. Confusion matrices can be produced to quantify this error. The realistic confusion matrix is found in Table \@ref(tab:realisticConfMat).
@@ -89,7 +89,7 @@ RealisticPredicted <- predict(LDA, Test)$class
 RCM <- table(RealisticPredicted, Actual=Test$Heart.Disease)
 LDACMstats <- confusionMatrix(RCM, positive = "Presence")
 knitr::kable(LDACMstats$table, booktabs=TRUE, 
-             caption="Confusion matrix for predicting heart disease using the Bayesian classification method.") %>%
+             caption="Confusion matrix for predicting heart disease using linear discriminant analysis.") %>%
   kable_styling(latex_options = c("HOLD_position"))
 ```
 

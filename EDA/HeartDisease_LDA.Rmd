@@ -37,8 +37,7 @@ hd <- as.data.frame(hd[,-1])
 A pairs plot can be generated to show visually the difference in distribution between heart disease presence and absence, found in Figure \@ref(fig:pairs).
 
 ```{r pairs, fig.cap="Pairs plot for the continuous numeric variables.", message=FALSE}
-ggpairs(hd, aes(colour=Heart.Disease, alpha=.5), columns=c("Age", "BP", 
-  "Cholesterol", "Max.HR")) + 
+ggpairs(hd, aes(colour=Heart.Disease, alpha=.5), columns=c("Age", "BP", "Cholesterol", "Max.HR")) + 
   theme_pander(base_size = 8)
 ```
 
@@ -55,7 +54,7 @@ ind <- sample(c("Tr", "Te"),
 Train <- hd[ind=="Tr",]
 Test <- hd[ind=="Te",]
 
-LDA <- lda(Heart.Disease ~ Age + BP + Cholesterol + Max.HR +
+LDA <- lda(Heart.Disease ~ Age + log(BP) + log(Cholesterol) + Max.HR +
              as.factor(Chest.pain.type) + as.factor(Sex), data=Train)
 ```
 
@@ -116,19 +115,19 @@ The model has sensitivity of $77.42\%$, specificity of $92.31\%$, and a balanced
 An assumption for performing linear discriminant analysis is that covariance matrices between classes are similar. The test for covariance equality is found in Table \@ref(tab:covEquality).
 
 ```{r covEquality}
-HDabsence <- as.matrix(subset(Train, Train$Heart.Disease=="Absence")[,c(-14)], ncol=5)
-HDpresence <- as.matrix(subset(Train, Train$Heart.Disease=="Presence")[,c(-14)], ncol=5)
+HDabsence <- as.matrix(subset(hd, hd$Heart.Disease=="Absence")[,-c(14)], ncol=13)
+HDpresence <- as.matrix(subset(hd, hd$Heart.Disease=="Presence")[,-c(14)], ncol=13)
 pander(as.data.frame(test_covequal(HDabsence, HDpresence)),
        caption="(\\#tab:covEquality) Test results for comparing covariance matrices for 
        absence and presence of heart disease for equality.")
 ```
 
-The covariance equality test is performed at the $\alpha = 0.05$ significance level, with null hypothesis that covariance matrices are equal. The associated p-value for this test is $p=0.1778$. Since $p > \alpha$, there is insufficient evidence to reject that covariance matrices are equal. The assumption required for linear discriminant analysis thus holds.
+The covariance equality test is performed at the $\alpha = 0.05$ significance level, with null hypothesis that covariance matrices are equal. The associated p-value for this test is $p=0.07649$. Since $p > \alpha$, there is insufficient evidence to reject that covariance matrices are equal. The assumption required for linear discriminant analysis thus holds.
 
 A partition matrix is generated considering all numerical variables as before. Red points represent that the observation has been misclassified, and black points represent correctly classified observations. The partition plot can be found in Figure \@ref(fig:HDPredictpartimat).
 
 ```{r HDPredictpartimat, fig.cap="Partition plot of numerical variables used in the linear discriminant analysis."}
-partimat(as.factor(Heart.Disease) ~ Age + BP + Cholesterol + Max.HR,
+partimat(as.factor(Heart.Disease) ~ Age + log(BP) + log(Cholesterol) + Max.HR,
          data=Train, method="lda")
 ```
 
@@ -137,11 +136,18 @@ The approximate error rate for classification is highest at $43\%$ between blood
 Instead of linear discriminant analysis, we can do a Bayesian classification instead. The Bayesian method will be tested on the same training data as the LDA was, and tested on the same test data.
 
 ```{r}
-library(naivebayes)
-
 #necessary transformation for factors
 Train$Chest.pain.type <- as.factor(Train$Chest.pain.type)
-Train$Sex <- as.factor(Train$Sex)
+Train$Sex <- as.factor(Train$Chest.pain.type)
+Test$Chest.pain.type <- as.factor(Test$Chest.pain.type)
+Test$Sex <- as.factor(Test$Sex)
+
+# log transformation of test and train data
+Train$BP <- log(Train$BP)
+Train$Cholesterol <- log(Train$Cholesterol)
+Test$BP <- log(Test$BP)
+Test$Cholesterol <- log(Test$Cholesterol)
+
 
 Bayes <- naivebayes::gaussian_naive_bayes(x=data.matrix(Train[,c(1,2,3,4,5,8)]), y=Train$Heart.Disease, data=Train)
 ```
@@ -159,7 +165,7 @@ knitr::kable(BayesCMstats$table, booktabs=TRUE,
   kable_styling(latex_options = c("HOLD_position"))
 ```
 
-The Bayesian classification method correctly classified all patients without heart disease, but misclassified 21 of 31 patients with heart disease as not having it, an error of $67.74\%$.
+The Bayesian classification method correctly classified all patients without heart disease as not having heart disease, but misclassified 24 of 31 patients with heart disease as not having it, an error of $77.42\%$.
 
 ```{r bayesOverallStats}
 knitr::kable(scales::percent(BayesCMstats$overall, accuracy=0.01), booktabs=TRUE, 
@@ -167,7 +173,7 @@ knitr::kable(scales::percent(BayesCMstats$overall, accuracy=0.01), booktabs=TRUE
   kable_styling(latex_options = c("HOLD_position"))
 ```
 
-The Bayesian classification has an overall accuracy of $70.00\% \pm 12.13\%$. The accuracy of this model is tested against the null hypothesis that the model is no better than the largest proportion of classes, the No Information Rate. The `confusionMatrix` function tests this at the $\alpha=5\%$ level, and the corresponding p-value is $1.02\%$. Since $p < \alpha$, there is sufficient evidence to suggest the model is better at predicting levels of heart disease than the no information model. This means the Bayesian classification method is significant in its prediction power for heart disease.
+The Bayesian classification has an overall accuracy of $65.71\% \pm 12.31\%$. The accuracy of this model is tested against the null hypothesis that the model is no better than the largest proportion of classes, the No Information Rate. The `confusionMatrix` function tests this at the $\alpha=5\%$ level, and the corresponding p-value is $5.78\%$. Since $p > \alpha$, there is insufficient evidence to suggest the model is better at predicting levels of heart disease than the no information model. This means the Bayesian classification method is not significant in its prediction power for heart disease by this metric. <!-- Kappa stat > 0 so still useful? -->
 
 
 ```{r bayesConfMatStats}
@@ -176,12 +182,15 @@ knitr::kable(scales::percent(BayesCMstats$byClass, accuracy=0.01), booktabs=TRUE
   kable_styling(latex_options = c("HOLD_position"))
 ```
 
-The Bayesian classification has sensitivity of $32.26\%$, specificity of $100.00\%$, and a balanced accuracy of $66.13\%$ for predicting the presence of heart disease. This means that the model is highly inaccurate for telling people with heart disease that they have it, but perfect at telling someone without heart disease that they don't have it.
+The Bayesian classification has sensitivity of $22.58\%$, specificity of $100.00\%$, and a balanced accuracy of $61.29\%$ for predicting the presence of heart disease. This means the model is very good at informing those without heart disease that they don't have it, but bad at informing those with heart disease that they do have it.
+
+A partition matrix can also be generated for this data on its numerical variables.
 
 ```{r BayesPartimat, fig.cap="Partition plot of the numerical variables used in the Bayesian classification."}
-partimat(as.factor(Heart.Disease) ~ Age + BP + Cholesterol + Max.HR,
+partimat(as.factor(Heart.Disease) ~ Age + log(BP) + log(Cholesterol) + Max.HR,
          data=Train, method="naiveBayes")
 ```
-The approximate error rate for classification is highest at $42\%$ between blood pressure and age, and lowest at $28.5\%$ between maximum heart rate and cholesterol. This gives a range of classification error between $28.5%-42%$ between the numerical variables of the Bayesian classification, slightly better than that of the linear discriminant analysis.
 
-Overall, the linear discriminant model is better for detecting true positives, whereas the Bayesian classification is better for detecting true negatives. The balanced accuracy of the linear discriminant model is $84.86\%$, whereas the balanced accuracy of the Bayesian classification is $66.13\%$. The linear discriminant model should be used over the Bayesian classification, as it is more important to detect heart disease that is present than it is to clear someone of having it when they do not.
+The approximate error rate for classification is highest at $43.5\%$ between the log of blood pressure and log of cholesterol, and lowest at $28.0\%$ between maximum heart rate and the log cholesterol. This gives a range of classification error between $28.0%-43.5%$ between the numerical variables of the Bayesian classification, slightly better than that of the linear discriminant analysis.
+
+Overall, the linear discriminant model is better for detecting true positives, whereas the Bayesian classification is better for detecting true negatives. The balanced accuracy of the linear discriminant model is $84.86\%$, whereas the balanced accuracy of the Bayesian classification is $62.90\%$. The linear discriminant model should be used over the Bayesian classification, as it is more important to detect heart disease that is present than it is to clear someone of having it when they do not.

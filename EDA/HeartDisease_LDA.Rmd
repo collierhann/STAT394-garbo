@@ -127,7 +127,7 @@ The covariance equality test is performed at the $\alpha = 0.05$ significance le
 
 A partition matrix is generated considering all numerical variables as before. Red points represent that the observation has been misclassified, and black points represent correctly classified observations. The partition plot can be found in Figure \@ref(fig:HDPredictpartimat).
 
-```{r HDPredictpartimat, fig.cap="Partition plot of observations vs numerical variables, with each observation coloured by the quality of their classification."}
+```{r HDPredictpartimat, fig.cap="Partition plot of numerical variables used in the linear discriminant analysis."}
 partimat(as.factor(Heart.Disease) ~ Age + BP + Cholesterol + Max.HR,
          data=Train, method="lda")
 ```
@@ -178,4 +178,10 @@ knitr::kable(scales::percent(BayesCMstats$byClass, accuracy=0.01), booktabs=TRUE
 
 The Bayesian classification has sensitivity of $32.26\%$, specificity of $100.00\%$, and a balanced accuracy of $66.13\%$ for predicting the presence of heart disease. This means that the model is highly inaccurate for telling people with heart disease that they have it, but perfect at telling someone without heart disease that they don't have it.
 
+```{r BayesPartimat, fig.cap="Partition plot of the numerical variables used in the Bayesian classification."}
+partimat(as.factor(Heart.Disease) ~ Age + BP + Cholesterol + Max.HR,
+         data=Train, method="naiveBayes")
+```
+The approximate error rate for classification is highest at $42\%$ between blood pressure and age, and lowest at $28.5\%$ between maximum heart rate and cholesterol. This gives a range of classification error between $28.5%-42%$ between the numerical variables of the Bayesian classification, slightly better than that of the linear discriminant analysis.
 
+Overall, the linear discriminant model is better for detecting true positives, whereas the Bayesian classification is better for detecting true negatives. The balanced accuracy of the linear discriminant model is $84.86\%$, whereas the balanced accuracy of the Bayesian classification is $66.13\%$. The linear discriminant model should be used over the Bayesian classification, as it is more important to detect heart disease that is present than it is to clear someone of having it when they do not.

@@ -138,7 +138,7 @@ Instead of linear discriminant analysis, we can do a Bayesian classification ins
 ```{r}
 #necessary transformation for factors
 Train$Chest.pain.type <- as.factor(Train$Chest.pain.type)
-Train$Sex <- as.factor(Train$Chest.pain.type)
+Train$Sex <- as.factor(Train$Sex)
 Test$Chest.pain.type <- as.factor(Test$Chest.pain.type)
 Test$Sex <- as.factor(Test$Sex)
 
@@ -165,7 +165,7 @@ knitr::kable(BayesCMstats$table, booktabs=TRUE,
   kable_styling(latex_options = c("HOLD_position"))
 ```
 
-The Bayesian classification method correctly classified all patients without heart disease as not having heart disease, but misclassified 24 of 31 patients with heart disease as not having it, an error of $77.42\%$.
+The Bayesian classification method wrongly assigned 7 of 39 patients without heart disease as having heart disease, and misclassified 24 of 31 patients with heart disease as not having it,  errors of $15.22\%$ and $77.42\%$ respectively.
 
 ```{r bayesOverallStats}
 knitr::kable(scales::percent(BayesCMstats$overall, accuracy=0.01), booktabs=TRUE, 
@@ -173,7 +173,7 @@ knitr::kable(scales::percent(BayesCMstats$overall, accuracy=0.01), booktabs=TRUE
   kable_styling(latex_options = c("HOLD_position"))
 ```
 
-The Bayesian classification has an overall accuracy of $65.71\% \pm 12.31\%$. The accuracy of this model is tested against the null hypothesis that the model is no better than the largest proportion of classes, the No Information Rate. The `confusionMatrix` function tests this at the $\alpha=5\%$ level, and the corresponding p-value is $5.78\%$. Since $p > \alpha$, there is insufficient evidence to suggest the model is better at predicting levels of heart disease than the no information model. This means the Bayesian classification method is not significant in its prediction power for heart disease by this metric. <!-- Kappa stat > 0 so still useful? -->
+The Bayesian classification has an overall accuracy of $77.14\% \pm 11.59\%$. The accuracy of this model is tested against the null hypothesis that the model is no better than the largest proportion of classes, the No Information Rate. The `confusionMatrix` function tests this at the $\alpha=5\%$ level, and the corresponding p-value is $0.02\%$. Since $p < \alpha$, there is sufficient evidence to suggest the model is better at predicting levels of heart disease than the no information model. This means the Bayesian classification method is significant in its prediction power for heart disease by this metric. <!-- Kappa stat > 0 so still useful? -->
 
 
 ```{r bayesConfMatStats}
@@ -182,7 +182,7 @@ knitr::kable(scales::percent(BayesCMstats$byClass, accuracy=0.01), booktabs=TRUE
   kable_styling(latex_options = c("HOLD_position"))
 ```
 
-The Bayesian classification has sensitivity of $22.58\%$, specificity of $100.00\%$, and a balanced accuracy of $61.29\%$ for predicting the presence of heart disease. This means the model is very good at informing those without heart disease that they don't have it, but bad at informing those with heart disease that they do have it.
+The Bayesian classification has sensitivity of $70.97\%$, specificity of $82.05\%$, and a balanced accuracy of $76.51\%$ for predicting the presence of heart disease. This means the model is good at both informing those with heart disease of their heart disease, and better at letting those without heart disease know they do not have heart disease.
 
 A partition matrix can also be generated for this data on its numerical variables.
 
@@ -193,4 +193,4 @@ partimat(as.factor(Heart.Disease) ~ Age + log(BP) + log(Cholesterol) + Max.HR,
 
 The approximate error rate for classification is highest at $43.5\%$ between the log of blood pressure and log of cholesterol, and lowest at $28.0\%$ between maximum heart rate and the log cholesterol. This gives a range of classification error between $28.0%-43.5%$ between the numerical variables of the Bayesian classification, slightly better than that of the linear discriminant analysis.
 
-Overall, the linear discriminant model is better for detecting true positives, whereas the Bayesian classification is better for detecting true negatives. The balanced accuracy of the linear discriminant model is $84.86\%$, whereas the balanced accuracy of the Bayesian classification is $62.90\%$. The linear discriminant model should be used over the Bayesian classification, as it is more important to detect heart disease that is present than it is to clear someone of having it when they do not.
+Overall, the linear discriminant model is better for detecting true positives, whereas the Bayesian classification is better for detecting true negatives. The balanced accuracy of the linear discriminant model is $84.86\%$, whereas the balanced accuracy of the Bayesian classification is $76.51\%$. The linear discriminant model should be used over the Bayesian classification, as it is more important to detect heart disease that is present than it is to clear someone of having it when they do not. 

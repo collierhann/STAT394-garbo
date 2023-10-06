@@ -1,0 +1,180 @@
+---
+title: "group project 2"
+author: "Bridget Fijma"
+date: "2023-09-27"
+output: 
+  bookdown::pdf_document2:
+      number_sections: false
+      extra_dependencies: "bbm"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.pos = 'H', extra.out="", out.width="60%")
+```
+
+```{r}
+require(tinytex)
+require(ggplot2)
+require(ggthemes)
+require(extrafont)
+require(ggstance)
+require(fitdistrplus)
+require(ggcorrplot)
+require(GGally)
+require(ggExtra)
+require(moments)
+require(kableExtra)
+require(reshape2)
+require(dplyr)
+require(corrplot)
+require(ggbiplot)
+require(gridExtra)
+require(ggbio)
+require(nortest) # Anderson-Darling test
+require(pander) # nice tables
+```
+
+# LDA
+```{r}
+#options(repos = c(
+   # fawda123 = 'https://fawda123.r-universe.dev',
+  #  CRAN = 'https://cloud.r-project.org'))
+```
+
+```{r}
+HDdata <- read.csv("Heart_Disease_Prediction.csv")
+summary(HDdata)
+library(MASS)
+library(ggord)
+set.seed(1234567890, kind = "Mersenne-Twister")
+
+
+Chest.pain.type <- as.factor(HDdata$Chest.pain.type)
+FBS.over.120 <- as.factor(HDdata$FBS.over.120)
+EKG.results <- as.factor(HDdata$EKG.results)
+Heart.Disease <- as.factor(HDdata$Heart.Disease)
+
+ind <- sample(c("Tr", "Te"), nrow(HDdata), replace = TRUE, prob = c(.6, .4))
+#Explicitly split the data in "Train" and "test"
+Train <- HDdata[ind=="Tr",]
+Test <- HDdata[ind=="Te",]
+(LDA <- lda(Heart.Disease ~ Age+Sex+Chest.pain.type+BP+Cholesterol+Max.HR, data = Train))
+
+Train$Heart.Disease <- as.factor(Train$Heart.Disease)
+
+pred <- predict(LDA)
+ldahist(data = pred$x[,1], g=Train$Heart.Disease)
+#ggord(LDA, Train$Heart.Disease, alpha=.5, xlims=c(-5,5), ylim = c(-5, 5))
+
+library(psych)
+library(klaR)
+# partimat(Heart.Disease ~ Age+Sex+Chest.pain.type+BP+Cholesterol+FBS.over.120+EKG.results+Max.HR+Exercise.angina+ST.depression+Slope.of.ST+Number.of.vessels.fluro+Thallium, data=Train, method="lda")
+
+optimisticPredict <- predict(LDA, Train)$class
+(OCM <- table(optimisticPredict, Actual = Train$Heart.Disease))
+
+sum(diag(OCM))/sum(OCM)
+
+realisticpredicted <- predict(LDA, Test)$class
+(RCM <- table(realisticpredicted, Actual=Test$Heart.Disease))
+sum(diag(RCM))/sum(RCM)
+
+```
+
+# with an interaction between sex and Heart Disease
+
+```{r}
+set.seed(1234567890, kind = "Mersenne-Twister")
+library(readr)
+HDdataone <- read.csv("Heart_Disease_Prediction.csv")
+
+levels(HDdataone$Sex) <- c("Female", "Male")
+HDdataone$Chest.pain.type<- as.factor(HDdataone$Chest.pain.type)
+
+HDdataone$Interaction <- interaction(HDdataone$Sex, HDdataone$Heart.Disease)
+
+(l <- levels(HDdataone$Interaction))
+
+levels(HDdataone$Interaction) <- list("FA"=l[1], "MA"=l[2], "fp"=l[3], "mp"=l[4])
+
+HD_ind <- sample(c("Tr", "Te"), size = nrow(HDdataone), replace = TRUE, prob = c(.7, .3))
+#Explicitly split the data in "Train" and "test"
+HD_Train <- HDdataone[HD_ind=="Tr", -c(1,3,15)]
+HD_Test <- HDdataone[HD_ind=="Te",-c(1, 3,15)]
+HD_Train$Chest.pain.type<- as.factor(HD_Train$Chest.pain.type)
+(LDA1 <- lda(Interaction ~ Age + Chest.pain.type +log(BP)+ log(Cholesterol)+Max.HR, HD_Train))
+
+pred1 <- predict(LDA1)
+par(mar=c(2,2,1,1))
+ldahist(data = pred1$x[,1], g=HD_Train$Interaction)
+# ggord(LDA1, HD_Train$Interaction, alpha=.5, xlims=c(-5,5), ylim = c(-5, 5))
+
+library(psych)
+library(klaR)
+
+partimat(Interaction ~ Age+BP+Cholesterol, data=HD_Train, method="lda", nplots.hor = 3)
+
+optimisticPredict1 <- predict(LDA1, HD_Train)$class
+(OCM1 <- table(optimisticPredict1, Actual = HD_Train$Interaction))
+sum(diag(OCM1))/sum(OCM1)
+
+require(caret) 
+confusionMatrix(OCM1)
+
+realisticpred <- predict(LDA1, HD_Test)$class
+(RCM1 <- table(realisticpred, Actual = HD_Test$Interaction))
+RCM12<- confusionMatrix(RCM1)
+
+knitr::kable(RCM12$table, booktabs=TRUE, 
+             caption="Confusion matrix for predicting Heart Disease with interaction between Sex and Heart Disease variables using LDA.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+
+knitr::kable(scales::percent(RCM12$overall, accuracy=0.01), booktabs=TRUE, 
+             caption="Overall statistics for predicting heart disease using interactions between Sex and Heart Disease.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+
+knitr::kable(scales::percent(RCM12$byClass, accuracy=0.01), booktabs=TRUE, 
+             caption="Prediction statistics for predicting heart disease using linear discriminant analysis.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+
+HDdataone$BP <-log(HDdataone$BP)
+HDdataone$Cholesterol <- log(HDdataone$Cholesterol)
+
+ggpairs(HDdataone, aes(colour=Interaction, alpha=.5), columns=c("Age", "BP","Cholesterol", "Max.HR")) + theme_pander(base_size = 8)
+
+```
+
+
+```{r}
+library(naivebayes)
+
+HD_Train$BP <- log(HD_Train$BP)
+HD_Test$BP <- log(HD_Test$BP)
+HD_Train$Cholesterol <- log(HD_Train$Cholesterol)
+HD_Test$Cholesterol <- log(HD_Test$Cholesterol)
+
+Bayes3 <- naivebayes::gaussian_naive_bayes(x=data.matrix(HD_Train[,c(1,2,3,4,7)]), y=HD_Train$Interaction, data=HD_Train)
+
+partimat(Interaction ~ Age+BP+Cholesterol, data=HD_Train, method="naiveBayes", nplots.hor = 3)
+
+#confusion matrix
+
+Bayespredict <- predict(Bayes3, newdata = data.matrix(HD_Test[,c(1,2,3,4,7)]), type = "class")
+BayesCM <- table(Bayespredict, Actual = HD_Test$Interaction)
+CMstats <- confusionMatrix(BayesCM)
+
+knitr::kable(CMstats$table, booktabs=TRUE, 
+             caption="Confusion matrix for predicting heart disease using the Bayesian classification method.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+
+knitr::kable(scales::percent(CMstats$overall, accuracy=0.01), booktabs=TRUE, 
+             caption="Overall statistics for predicting heart disease using the Bayesian classification method.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+
+knitr::kable(scales::percent(CMstats$byClass, accuracy=0.01), booktabs=TRUE, 
+             caption="Prediction statistics for predicting heart disease using the Bayesian classification method") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+
+```
+
+

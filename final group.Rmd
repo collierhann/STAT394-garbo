@@ -1,0 +1,160 @@
+---
+title: "Final Project"
+author: "Bridget Fijma"
+date: "2023-10-18"
+output: pdf_document
+---
+
+```{r setup, include=FALSE, out.width="70%"}
+knitr::opts_chunk$set(echo = FALSE)
+library(MASS)
+library(naivebayes)
+library(ggord)
+require(tinytex)
+require(ggplot2)
+require(ggthemes)
+require(extrafont)
+require(ggstance)
+require(fitdistrplus)
+require(ggcorrplot)
+require(caret) 
+require(GGally)
+require(ggExtra)
+require(moments)
+require(kableExtra)
+require(reshape2)
+require(dplyr)
+require(corrplot)
+require(ggbiplot)
+require(gridExtra)
+library(psych)
+library(klaR)
+require(nortest) # Anderson-Darling test
+require(pander) # nice tables
+```
+
+# Introduction to Interaction
+
+After performing analysis using LDA and Bayesian to predict Heart Disease, we did some further research on our data to see if there could be a better way to predict heart disease. We noticed that there were many discrepancies between male and female characteristics and symptoms associated with heart disease. This led us to question whether we could more accurately predict heart disease if we induce four classes by using sex interacting with Heart Disease presence. These four classes were:
+fp – female and heart disease present
+mp – male and heart disease present
+FA – female and heart disease absent 
+MA – male and heart disease absent. 
+This allowed us to see if our model had difficulties predicting heart disease for a certain sex.
+
+
+# RESULTS:
+
+```{r}
+set.seed(1234567890, kind = "Mersenne-Twister")
+library(readr)
+HDdataone <- read.csv("Heart_Disease_Prediction.csv")
+
+levels(HDdataone$Sex) <- c("Female", "Male")
+HDdataone$Chest.pain.type<- as.factor(HDdataone$Chest.pain.type)
+
+HDdataone$Interaction <- interaction(HDdataone$Sex, HDdataone$Heart.Disease)
+
+(l <- levels(HDdataone$Interaction))
+
+levels(HDdataone$Interaction) <- list("FA"=l[1], "MA"=l[2], "fp"=l[3], "mp"=l[4])
+
+HD_ind <- sample(c("Tr", "Te"), size = nrow(HDdataone), replace = TRUE, prob = c(.7, .3))
+#Explicitly split the data in "Train" and "test"
+HD_Train <- HDdataone[HD_ind=="Tr", -c(1,3,15)]
+HD_Test <- HDdataone[HD_ind=="Te",-c(1, 3,15)]
+HD_Train$Chest.pain.type<- as.factor(HD_Train$Chest.pain.type)
+
+HDdataone$BP <-log(HDdataone$BP)
+HDdataone$Cholesterol <- log(HDdataone$Cholesterol)
+```
+
+```{r pairlda1, fig.cap= "Figure showing Pairs Plot of the four induced classes."}
+ggpairs(HDdataone, aes(colour=Interaction, alpha=.5), columns=c("Age", "BP","Cholesterol", "Max.HR")) + theme_pander(base_size = 8)
+```
+
+```{r histlda, fig.cap= "Histogram of the classifications from our LDA model."}
+(LDA1 <- lda(Interaction ~ Age + Chest.pain.type +log(BP)+ log(Cholesterol)+Max.HR, HD_Train))
+pred1 <- predict(LDA1)
+par(mar=c(2,2,1,1))
+ldahist(data = pred1$x[,1], g=HD_Train$Interaction)
+```
+
+```{r partilda, fig.cap= "Partition Plot of the LDA classification."}
+partimat(Interaction ~ Age+BP+Cholesterol + Max.HR , data=HD_Train, method="lda", nplots.hor = 3)
+```
+
+Our Pairs plot, Figure: \ref{fig:pairlda1} shows the general distribution of our four classes. This uses the log values for cholesterol and BP. We see that there does seem to be differences between our four classes, specifically in the max HR variable. This indicates that this separation may help with our analysis. 
+
+```{r confmatlda}
+realisticpred <- predict(LDA1, HD_Test)$class
+(RCM1 <- table(realisticpred, Actual = HD_Test$Interaction))
+RCM12 <- confusionMatrix(RCM1)
+knitr::kable(RCM12$table, booktabs=TRUE, label = "confmatlda",
+             caption="Confusion matrix for predicting Heart Disease with interaction between Sex and Heart Disease variables using LDA.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+```
+```{r statslda}
+knitr::kable(scales::percent(RCM12$overall, accuracy=0.01), booktabs=TRUE, 
+             caption="Overall statistics for predicting heart disease using interactions between Sex and Heart Disease.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+
+RCM12$byClass
+
+```
+
+
+```{r}
+HD_Train$BP <- log(HD_Train$BP)
+HD_Test$BP <- log(HD_Test$BP)
+HD_Train$Cholesterol <- log(HD_Train$Cholesterol)
+HD_Test$Cholesterol <- log(HD_Test$Cholesterol)
+
+Bayes3 <- naivebayes::gaussian_naive_bayes(x=data.matrix(HD_Train[,c(1,2,3,4,7)]), y=HD_Train$Interaction, data=HD_Train)
+```
+
+```{r partbayes, fig.cap= "Partition Plot of the Bayesian Method of Classification."}
+partimat(Interaction ~ Age+BP+Cholesterol + Max.HR, data=HD_Train, method="naiveBayes", nplots.hor = 3)
+```
+
+```{r bayesconf}
+Bayespredict <- predict(Bayes3, newdata = data.matrix(HD_Test[,c(1,2,3,4,7)]), type = "class")
+BayesCM <- table(Bayespredict, Actual = HD_Test$Interaction)
+CMstats <- confusionMatrix(BayesCM)
+
+knitr::kable(CMstats$table, booktabs=TRUE, 
+             caption="Confusion matrix for predicting heart disease using the Bayesian classification method.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+```
+```{r bayesstats}
+knitr::kable(scales::percent(CMstats$overall, accuracy=0.01), booktabs=TRUE, 
+             caption="Overall statistics for predicting heart disease using the Bayesian classification method.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+
+CMstats$byClass
+
+```
+
+# CONCLUSION:
+
+It is important to note that our dataset was not balanced, and we had more males in our dataset, and more people without heart disease in our dataset. This meant our four classes were not equal in size. We also had different prior probabilities, which is why we used Bayesian prediction methods as well as LDA. 
+
+Interestingly, our accuracy of predicting heart disease decreased significantly after inducing the four classes. This was the case for both LDA and Bayesian. 
+
+For the LDA, we saw that we had an overall accuracy of 50% (40.22%-59.68% CI). This means our model correctly classified 50% of the data. Table: \ref{tab:confmatlda} shows us the confusion Matrix and Table: \ref{tab:statslda} shows the Accuracy Stats.
+
+We can see in figure: \ref{fig:histlda} a Histogram of the classified observations via LDA. The overlap indicates potentially incorrectly classified observations. We have quite a bit of overlap which is consistent with the 50% accuracy gathered.
+
+In Figure \ref{fig:partilda} it is a Partition Plot for the numerical variables of our dataset. We see that there is error rates which are high, from about 0.5-0.6. 
+
+The sensitivity and specificity of the output allows us the look further into the separate classes. We want to be able to accurately predict having heart disease, so the sensitivity value is more valuable to our research question. We see our model is much better at predicting correctly if males have heart disease than females. Both female classes have sensitivity of below 40%, which is very low, indicating our model is not accurate. However for specificity this is the opposite, with our model being better at accurately classifying females into the correct class, than males. All the values of specificity are quite high, however female present (fp), is 95.15%, which is very high. It is important to note that there is far less females with heart disease that were tested in our data set. 
+
+For the Bayesian prediction model, we had a low overall accuracy of 48.15% (38.43%-57.97% CI). Table: \ref{tab:bayesconf} shows the confusion matrix for this model. Table 2: \ref{tab:bayesstats} shows the overall statistics. 
+
+Figure: \ref{fig:partbayes} shows the partition Plot for the Bayes method of classification. We again seeing high error rates from 0.48-0.62. This indicates our model is not great at classifying Heart Disease Presence.
+
+We had similar patterns with the specificity and similarity of the model. Our sensitivity for males increased for MA, and decreased for mp. For females, it decreased for FA and stayed the same for fp. We see these changes due to the nature of Bayesian, which takes into consideration the prior probabilities, which were significantly different between the groups. For specificity, both male groups decreased. This indicates that this model is worse with incorrectly classifying observations to their correct group.
+
+The LDA again had higher accuracy than the Bayesian classifier. They were both better at predicting heart disease in males. This could be due to our dataset having more males, giving it more opportunity for training. Although it may be more likely be due to inherent differences between male and females. 
+
+These clear differences with the accuracy between female and male groups may indicate that there is discrepencies between sex and heart disease characteristics. We may need different predictors for females, such as weight to increase the accuracy of our prediction of heart disease. This is consistent with literature on heart disease. We see that females are diagnosed with heart disease later in life, and have different symptoms. Although this disease is often though of as a ‘man disease’ this is not the case. With it often actually being more common in females, and them having a higher mortality rate.  
